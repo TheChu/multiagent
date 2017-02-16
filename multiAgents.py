@@ -307,6 +307,39 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
       Your expectimax agent (question 4)
     """
 
+    def getActionHelper(self, gameState, agentIndex, depth):
+        if (depth == 0) or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState), 0
+
+        # Collect legal moves and successor states
+        legalMoves = gameState.getLegalActions(agentIndex)
+        states = [gameState.generateSuccessor(agentIndex, action) \
+                  for action in legalMoves]
+
+        # Recursively collect scores for every successor state
+        if agentIndex < gameState.getNumAgents() - 1:
+            scores = [self.getActionHelper(state, agentIndex + 1, depth)[0] \
+                      for state in states]
+        else:
+            scores = [self.getActionHelper(state, 0, depth - 1)[0] \
+                      for state in states]
+
+        # Choose best score according to current agent
+        if agentIndex == 0:
+            bestScore = max(scores)
+
+            bestIndices = [index for index in range(len(scores)) \
+                           if scores[index] == bestScore]
+            # Pick randomly among the best
+            chosenIndex = random.choice(bestIndices)
+
+            return bestScore, chosenIndex
+
+        else:
+            expectedScore = 1.0 * sum([score for score in scores]) / len(scores)
+
+            return expectedScore, 0
+
     def getAction(self, gameState):
         """
           Returns the expectimax action using self.depth and
@@ -316,17 +349,55 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
           their legal moves.
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        bestScore, chosenIndex = self.getActionHelper(gameState, 0, self.depth)
+
+        # Collect legal moves
+        legalMoves = gameState.getLegalActions()
+
+        return legalMoves[chosenIndex]
 
 def betterEvaluationFunction(currentGameState):
     """
       Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
       evaluation function (question 5).
 
-      DESCRIPTION: <write something here so we know what you did>
+      DESCRIPTION: Score is higher the less food that is left, and the smaller
+                   the distance to the closest food pellet. If a ghost is
+                   nearby we run away.
     """
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    position = currentGameState.getPacmanPosition()
+    foodList = currentGameState.getFood().asList()
+    ghostStates = currentGameState.getGhostStates()
+
+    height, width = currentGameState.getWalls().height,\
+                    currentGameState.getWalls().width
+    maxPossibleDist = 2 * (height + width)
+
+    foodLeft = len(foodList)
+
+    # If there is no food left we win, so we choose this action regardless
+    if foodLeft == 0:
+        return 1000 * maxPossibleDist
+
+    # Get the distance to the closest food pellet
+    foodDistances = map(lambda xy:
+                        abs(position[0] - xy[0]) + abs(position[1] - xy[1]),
+                        foodList)
+    closestFoodDist = min(foodDistances)
+
+    # Get the distance to the closest ghost
+    ghostDistances = map(lambda xy:
+                        abs(position[0] - int(xy.getPosition()[0])) + abs(position[1] - int(xy.getPosition()[1])),
+                        ghostStates)
+    closestGhostDist = min(ghostDistances)
+    ghostPosition = ghostStates[0].getPosition()
+
+    # We want to avoid being too close to the ghost
+    if closestGhostDist < 3:
+        return -100000
+
+    return 460*maxPossibleDist/foodLeft + maxPossibleDist/closestFoodDist
 
 # Abbreviation
 better = betterEvaluationFunction
