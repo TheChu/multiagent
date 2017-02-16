@@ -164,23 +164,28 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
         # Recursively collect scores for every successor state
         if agentIndex < gameState.getNumAgents() - 1:
-            scores = [self.getActionHelper(state, agentIndex + 1, depth) \
+            scores = [self.getActionHelper(state, agentIndex + 1, depth)[0] \
                       for state in states]
         else:
-            scores = [self.getActionHelper(state, 0, depth - 1) \
+            scores = [self.getActionHelper(state, 0, depth - 1)[0] \
                       for state in states]
 
         # Choose best score according to current agent
         if agentIndex == 0:
-            bestScore = max(scores, key = lambda x: x[0])[0]
+            bestScore = max(scores)
+
+            bestIndices = [index for index in range(len(scores)) \
+                           if scores[index] == bestScore]
+            # Pick randomly among the best
+            chosenIndex = random.choice(bestIndices)
+
+            return bestScore, chosenIndex
+
         else:
-            bestScore = min(scores, key = lambda x: x[0])[0]
+            bestScore = min(scores)
 
-        bestIndices = [index for index in range(len(scores)) \
-                       if scores[index][0] == bestScore]
-        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+            return bestScore, 0
 
-        return bestScore, chosenIndex
 
     def getAction(self, gameState):
         """
@@ -220,13 +225,82 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
       Your minimax agent with alpha-beta pruning (question 3)
     """
 
+    def getActionHelper(self, gameState, agentIndex, depth, alpha, beta):
+        if (depth == 0) or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState), 0
+
+        # Collect legal moves
+        legalMoves = gameState.getLegalActions(agentIndex)\
+
+        # Max
+        if agentIndex == 0:
+            bestScore= -float('inf')
+            chosenIndex = 0
+
+            for action in legalMoves:
+                state = gameState.generateSuccessor(agentIndex, action)
+                score = self.getActionHelper(state,
+                                             agentIndex + 1,
+                                             depth,
+                                             alpha,
+                                             beta)[0]
+
+                if score > bestScore:
+                    bestScore = score
+                    chosenIndex = [index for index in range(len(legalMoves)) \
+                                   if legalMoves[index] == action][0]
+
+                if bestScore > beta:
+                    return bestScore, 0
+
+                alpha = max(alpha, bestScore)
+
+            return bestScore, chosenIndex
+
+        # Min
+        else:
+            bestScore= float('inf')
+
+            for action in legalMoves:
+                state = gameState.generateSuccessor(agentIndex, action)
+                if agentIndex < gameState.getNumAgents() - 1:
+                    bestScore = min(bestScore,
+                                    self.getActionHelper(state,
+                                                         agentIndex + 1,
+                                                         depth,
+                                                         alpha,
+                                                         beta)[0])
+                else:
+                    bestScore = min(bestScore,
+                                    self.getActionHelper(state,
+                                                         0,
+                                                         depth - 1,
+                                                         alpha,
+                                                         beta)[0])
+
+                if bestScore < alpha:
+                    return bestScore, 0
+
+                beta = min(beta, bestScore)
+
+            return bestScore, 0
+
     def getAction(self, gameState):
         """
           Returns the minimax action using self.depth and
           self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        bestScore, chosenIndex = self.getActionHelper(gameState,
+                                                      0,
+                                                      self.depth,
+                                                      -float('inf'),
+                                                      float('inf'))
+
+        # Collect legal moves
+        legalMoves = gameState.getLegalActions()
+
+        return legalMoves[chosenIndex]
 
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
