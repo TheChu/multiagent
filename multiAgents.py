@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -33,18 +33,22 @@ class ReflexAgent(Agent):
         """
         You do not need to change this method, but you're welcome to.
 
-        getAction chooses among the best options according to the evaluation function.
+        getAction chooses among the best options according to the evaluation
+        function.
 
-        Just like in the previous project, getAction takes a GameState and returns
-        some Directions.X for some X in the set {North, South, West, East, Stop}
+        Just like in the previous project, getAction takes a GameState and
+        returns some Directions.X for some X in the set {North, South, West,
+        East, Stop}
         """
         # Collect legal moves and successor states
         legalMoves = gameState.getLegalActions()
 
         # Choose one of the best actions
-        scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
+        scores = [self.evaluationFunction(gameState, action) \
+                  for action in legalMoves]
         bestScore = max(scores)
-        bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
+        bestIndices = [index for index in range(len(scores)) \
+                       if scores[index] == bestScore]
         chosenIndex = random.choice(bestIndices) # Pick randomly among the best
 
         "Add more of your code here if you want to"
@@ -56,7 +60,8 @@ class ReflexAgent(Agent):
         Design a better evaluation function here.
 
         The evaluation function takes in the current and proposed successor
-        GameStates (pacman.py) and returns a number, where higher numbers are better.
+        GameStates (pacman.py) and returns a number, where higher numbers are
+        better.
 
         The code below extracts some useful information from the state, like the
         remaining food (newFood) and Pacman position after moving (newPos).
@@ -71,10 +76,47 @@ class ReflexAgent(Agent):
         newPos = successorGameState.getPacmanPosition()
         newFood = successorGameState.getFood()
         newGhostStates = successorGameState.getGhostStates()
-        newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+        newScaredTimes = [ghostState.scaredTimer for ghostState \
+                          in newGhostStates]
 
         "*** YOUR CODE HERE ***"
-        return successorGameState.getScore()
+        height, width = currentGameState.getWalls().height,\
+                        currentGameState.getWalls().width
+        maxPossibleDist = max(height, width)
+
+        foodLeftBefore = len(currentGameState.getFood().asList())
+
+        foodList = newFood.asList()
+        foodLeft = len(foodList)
+
+        # If there is no food left we win, so we choose this action regardless
+        if foodLeft == 0:
+            return 2 * maxPossibleDist + 1
+
+        # Get the Manhattan distance to the closest food pellet
+        foodManhattans = map(lambda xy:
+                            abs(newPos[0] - xy[0]) + abs(newPos[1] - xy[1]),
+                            foodList)
+        closestFoodDist = min(foodManhattans)
+
+        # Get the Manhattan distance to the closest ghost
+        ghostManhattans = map(lambda xy:
+                            abs(newPos[0] - xy.getPosition()[0]) \
+                            + abs(newPos[1] - xy.getPosition()[1]),
+                            newGhostStates)
+        closestGhostDist = min(ghostManhattans)
+
+        # We want to avoid being too close to the ghost
+        if closestGhostDist < 2:
+            return 0
+
+        # We want to eat
+        elif foodLeft < foodLeftBefore:
+            return maxPossibleDist + maxPossibleDist / closestFoodDist
+
+        # We want to head towards the closest food pellet
+        else:
+            return maxPossibleDist / closestFoodDist
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -96,7 +138,7 @@ class MultiAgentSearchAgent(Agent):
       add functionality to all your adversarial search agents.  Please do not
       remove anything, however.
 
-      Note: this is an abstract class: one that should not be instantiated.  It's
+      Note: this is an abstract class: one that should not be instantiated. It's
       only partially specified, and designed to be extended.  Agent (game.py)
       is another abstract class.
     """
@@ -111,12 +153,42 @@ class MinimaxAgent(MultiAgentSearchAgent):
       Your minimax agent (question 2)
     """
 
+    def getActionHelper(self, gameState, agentIndex, depth):
+        if (depth == 0) or gameState.isWin() or gameState.isLose():
+            return self.evaluationFunction(gameState), 0
+
+        # Collect legal moves and successor states
+        legalMoves = gameState.getLegalActions(agentIndex)
+        states = [gameState.generateSuccessor(agentIndex, action) \
+                  for action in legalMoves]
+
+        # Recursively collect scores for every successor state
+        if agentIndex < gameState.getNumAgents() - 1:
+            scores = [self.getActionHelper(state, agentIndex + 1, depth) \
+                      for state in states]
+        else:
+            scores = [self.getActionHelper(state, 0, depth - 1) \
+                      for state in states]
+
+        # Choose best score according to current agent
+        if agentIndex == 0:
+            bestScore = max(scores, key = lambda x: x[0])[0]
+        else:
+            bestScore = min(scores, key = lambda x: x[0])[0]
+
+        bestIndices = [index for index in range(len(scores)) \
+                       if scores[index][0] == bestScore]
+        chosenIndex = random.choice(bestIndices) # Pick randomly among the best
+
+        return bestScore, chosenIndex
+
     def getAction(self, gameState):
         """
           Returns the minimax action from the current gameState using self.depth
           and self.evaluationFunction.
 
-          Here are some method calls that might be useful when implementing minimax.
+          Here are some method calls that might be useful when implementing
+          minimax.
 
           gameState.getLegalActions(agentIndex):
             Returns a list of legal actions for an agent
@@ -135,7 +207,13 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns whether or not the game state is a losing state
         """
         "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
+        bestScore, chosenIndex = self.getActionHelper(gameState, 0, self.depth)
+
+        # Collect legal moves
+        legalMoves = gameState.getLegalActions()
+
+        return legalMoves[chosenIndex]
+
 
 class AlphaBetaAgent(MultiAgentSearchAgent):
     """
@@ -144,7 +222,8 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
 
     def getAction(self, gameState):
         """
-          Returns the minimax action using self.depth and self.evaluationFunction
+          Returns the minimax action using self.depth and
+          self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
@@ -156,10 +235,11 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
 
     def getAction(self, gameState):
         """
-          Returns the expectimax action using self.depth and self.evaluationFunction
+          Returns the expectimax action using self.depth and
+          self.evaluationFunction
 
-          All ghosts should be modeled as choosing uniformly at random from their
-          legal moves.
+          All ghosts should be modeled as choosing uniformly at random from
+          their legal moves.
         """
         "*** YOUR CODE HERE ***"
         util.raiseNotDefined()
@@ -176,4 +256,3 @@ def betterEvaluationFunction(currentGameState):
 
 # Abbreviation
 better = betterEvaluationFunction
-
